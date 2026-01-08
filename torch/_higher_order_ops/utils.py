@@ -26,6 +26,7 @@ from torch.fx.experimental.proxy_tensor import (
 from torch.fx.passes.runtime_assert import insert_deferred_runtime_asserts
 from torch.fx.passes.shape_prop import _extract_tensor_metadata, TensorMetadata
 from torch.multiprocessing.reductions import StorageWeakRef
+from torch.utils._python_dispatch import is_traceable_wrapper_subclass, transform_subclass
 from torch._library.opaque_object import is_opaque_type
 
 
@@ -482,7 +483,9 @@ def unique_graph_name_with_root(
 def _from_fun(t):
     from torch._functorch.aot_autograd import from_fun
 
-    if isinstance(t, torch.Tensor):
+    if is_traceable_wrapper_subclass(t):
+        t = transform_subclass(t, lambda _, inner_t: _from_fun(inner_t))
+    elif isinstance(t, torch.Tensor):
         if t.dtype != torch.bool:
             return torch.empty_strided(
                 t.size(),
